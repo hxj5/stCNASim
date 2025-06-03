@@ -80,7 +80,11 @@ def cs_core(conf):
         # kwargs_fit_rd : dict
         #   The additional kwargs passed to function 
         #   :func:`~marginal.fit_RD_wrapper` for fitting read depth.
-        kwargs_fit_rd = conf.kwargs_fit_rd
+        kwargs_fit_rd = conf.kwargs_fit_rd,
+        
+        # libsize_ratio : float
+        #   Ratio of library size of simulated cells compared to seed cells.
+        libsize_ratio = conf.libsize_ratio
     )
     
     fn = os.path.join(pp_dir, "pp.output.params.pickle")
@@ -156,6 +160,7 @@ def cs_core(conf):
             size_factors_simu = pp_res["size_factors_simu"],
             marginal = conf.marginal, 
             kwargs_fit_rd = conf.kwargs_fit_rd,
+            libsize_ratio = conf.libsize_ratio,
             ncores = conf.ncores, 
             verbose = conf.verbose
         )
@@ -296,7 +301,8 @@ def cs_wrapper(
     clone_anno_fn, cna_profile_fn,
     out_dir,
     size_factor = "libsize", 
-    marginal = "auto", 
+    marginal = "auto",
+    libsize_ratio = 1.0,
     loss_allele_freq = 0.01,
     cna_mode = "hap-aware",
     ncores = 1, verbose = False,
@@ -350,6 +356,8 @@ def cs_wrapper(
         - "poi" (Poisson).
         - "nb" (Negative Binomial).
         - "zinb" (Zero-Inflated Negative Binomial).
+    libsize_ratio : float, default 1.0
+        Ratio of library size of simulated cells compared to seed cells.
     loss_allele_freq : float, default 0.01
         The frequency of the lost allele, to mimic real error rate, i.e.,
         sometimes we observe reads from the lost allele.
@@ -397,6 +405,7 @@ def cs_wrapper(
 
     conf.size_factor = size_factor
     conf.marginal = marginal
+    conf.libsize_ratio = libsize_ratio
     conf.loss_allele_freq = loss_allele_freq
     conf.cna_mode = cna_mode
     conf.ncores = ncores

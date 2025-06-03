@@ -878,6 +878,7 @@ def simu_RD(
     s = None,
     cn_fold = None,
     total_count_new = None,
+    libsize_ratio = 1.0,
     dtype = np.int32,
     ncores = 1, 
     verbose = False
@@ -929,6 +930,9 @@ def simu_RD(
         If a list, it is a list of cell-type-specific total read counts whose 
         length and order should match `cell_type_new`.
         Set to `None` to set the scaling factor of total library size to 1.
+    libsize_ratio : float, default 1.0
+        Ratio of library size of simulated cells compared to seed cells.
+        It will be used only when `total_count_new` is None.
     dtype
         The dtype of the simulated matrix.
     ncores : int, default 1
@@ -1029,7 +1033,7 @@ def simu_RD(
     # TODO: consider copy number fold when scaling to total_count_new.
     r = None                      # scaling factor
     if total_count_new is None:
-        r = np.repeat(1.0, n_cell_types)
+        r = np.repeat(libsize_ratio, n_cell_types)
     elif is_scalar_numeric(total_count_new):
         r = np.repeat(
             total_count_new/np.sum(total_count_old / n_cell_old * n_cell_each),

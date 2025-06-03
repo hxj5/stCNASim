@@ -204,6 +204,7 @@ def cs_cna_core(
     size_factors_simu,
     marginal,
     kwargs_fit_rd,
+    libsize_ratio,
     ncores,
     verbose
 ):
@@ -249,6 +250,8 @@ def cs_cna_core(
     kwargs_fit_rd : dict
         The additional kwargs passed to function 
         :func:`~.marginal.fit_RD` for fitting read depth.
+    libsize_ratio : float, default 1.0
+        Ratio of library size of simulated cells compared to seed cells.
     ncores : int
         Number of cores.
     verbose : bool
@@ -312,6 +315,7 @@ def cs_cna_core(
         s = size_factors_simu,
         cn_fold = cn_fold,
         total_count_new = None,
+        libsize_ratio = libsize_ratio,
         dtype = np.int32,
         ncores = ncores, 
         verbose = verbose

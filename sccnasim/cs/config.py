@@ -23,6 +23,7 @@ class Config:
 
         self.size_factor = "libsize"
         self.marginal = "auto"
+        self.libsize_ratio = 1.0
         self.loss_allele_freq = 0.01
         self.cna_mode = "hap-aware"
         self.ncores = 1
@@ -92,6 +93,7 @@ class Config:
 
         s += "%ssize_factor = %s\n" % (prefix, self.size_factor)
         s += "%smarginal = %s\n" % (prefix, self.marginal)
+        s += "%slibsize_ratio = %f\n" % (prefix, self.libsize_ratio)
         s += "%sloss_allele_freq = %f\n" % (prefix, self.loss_allele_freq)
         s += "%scna_mode = %s\n" % (prefix, self.cna_mode)
         s += "%sncores = %s\n" % (prefix, self.ncores)

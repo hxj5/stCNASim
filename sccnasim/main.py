@@ -38,6 +38,7 @@ def main_wrapper(
     overlap_features_how = "raw",
     size_factor = "libsize",
     marginal = "auto",
+    libsize_ratio = 1.0,
     loss_allele_freq = 0.01,
     kwargs_fit_sf = None,
     kwargs_fit_rd = None,
@@ -142,6 +143,8 @@ def main_wrapper(
         - "poi" (Poisson).
         - "nb" (Negative Binomial).
         - "zinb" (Zero-Inflated Negative Binomial).
+    libsize_ratio : float, default 1.0
+        Ratio of library size of simulated cells compared to seed cells.
     loss_allele_freq : float, default 0.01
         The frequency of the lost allele, to mimic real error rate, i.e.,
         sometimes we observe reads from the lost allele.
@@ -251,6 +254,7 @@ def main_wrapper(
     # count simulation.
     conf.size_factor = size_factor
     conf.marginal = marginal
+    conf.libsize_ratio = libsize_ratio
     conf.loss_allele_freq = loss_allele_freq
     if kwargs_fit_sf is None:
         conf.kwargs_fit_sf = dict()
@@ -403,6 +407,7 @@ def main_core(conf):
         out_dir = os.path.join(conf.out_dir, "%d_cs" % step),
         size_factor = conf.size_factor,
         marginal = conf.marginal,
+        libsize_ratio = conf.libsize_ratio,
         loss_allele_freq = conf.loss_allele_freq,
         cna_mode = "hap-aware",
         ncores = conf.ncores,
