@@ -9,7 +9,7 @@ Release v0.5.2 (03/06/2025)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * add option ``libsize_ratio`` (default 1.0) which is the ratio of 
   library size of simulated cells compared to seed cells.
-  This option allows users to simulate counts with various overall coverage,
+  This option enables users to simulate counts with various overall coverage,
   or total library size.
    
 
