@@ -161,7 +161,7 @@ class Defaults:
         self.MIN_MAF = 0
         
         self.STRANDNESS = "forward"
-        self.MIN_INCLUDE = 0.9
+        self.MIN_INCLUDE = 0.5
         self.MULTI_MAPPER_HOW = "discard"
         self.XF_TAG = "xf"
         self.GENE_TAG = "GN"

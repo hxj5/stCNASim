@@ -67,7 +67,7 @@ Full Parameters
         cell_tag = "CB", umi_tag = "UB", umi_len = 10,
         ncores = 1, seed = 123, verbose = False,
         min_count = 1, min_maf = 0,
-        strandness = "forward", min_include = 0.9, multi_mapper_how = "discard",
+        strandness = "forward", min_include = 0.5, multi_mapper_how = "discard",
         xf_tag = "xf", gene_tag = "GN",
         min_mapq = 20, min_len = 30,
         incl_flag = 0, excl_flag = -1,
@@ -260,7 +260,7 @@ strandness : {"forward", "reverse", "unstranded"}
         e.g., 10x 5' data.
     - "unstranded": no strand information.
 
-min_include : int or float, default 0.9
+min_include : int or float, default 0.5
     Minimum length of included part within specific feature.
     If float between (0, 1), it is the minimum fraction of included length.
 
