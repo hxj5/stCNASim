@@ -23,9 +23,6 @@ class Config:
         self.cna_profile_fn = None
         self.refseq_fn = None
         self.out_dir = None
-        self.sam_list_fn = None
-        self.sample_ids = None
-        self.sample_id_fn = None
         
         # preprocessing.
         self.overlap_features_how = "raw"
@@ -82,9 +79,6 @@ class Config:
         s += "%scna_profile_file = %s\n" % (prefix, self.cna_profile_fn)
         s += "%srefseq_file = %s\n" % (prefix, self.refseq_fn)
         s += "%sout_dir = %s\n" % (prefix, self.out_dir)
-        s += "%ssam_list_file = %s\n" % (prefix, self.sam_list_fn)
-        s += "%ssample_ids = %s\n" % (prefix, self.sample_ids)
-        s += "%ssample_id_file = %s\n" % (prefix, self.sample_id_fn)
         s += "%s\n" % prefix
         
         s += "%soverlap_features_how = %s\n" % (prefix, str(self.overlap_features_how))

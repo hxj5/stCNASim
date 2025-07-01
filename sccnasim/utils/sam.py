@@ -52,6 +52,8 @@ def check_basic(read, conf):
     int
         Return code. 0 if read is valid, negative otherwise.
     """
+    if read.is_unmapped:
+        return(-1)
     if read.mapq < conf.min_mapq:
         return(-2)
     if conf.excl_flag and read.flag & conf.excl_flag:

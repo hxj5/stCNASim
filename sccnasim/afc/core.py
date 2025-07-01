@@ -8,9 +8,7 @@ import os
 import pysam
 
 from logging import debug, error, info
-from .mcount_ab import MCount as ABFeatureMCount
-from .mcount_feature import MCount as FeatureMCount
-from .mcount_snp import MCount as SNPMCount
+from .mcount import MCount, SNPCount
 from ..utils.gfeature import load_feature_objects, save_feature_objects
 from ..utils.hapidx import hap2idx, idx2hap
 from ..utils.sam import check_read
@@ -23,9 +21,16 @@ from ..xlib.xsam import sam_fetch
 #    multiprocessing): https://github.com/pysam-developers/pysam/issues/397
 
 
+# solved.
+# - issue of double counting SNPs in one UMI.
+# - post-QC check of orphan reads in PE.
+# - UMI collapsing when determine allele of one SNP.
+
+
+
 def fc_features(
     reg_obj_fn,
-    sam_fn_list,
+    sam_fn,
     out_mtx_fns,
     samples,
     batch_idx,
@@ -46,8 +51,8 @@ def fc_features(
     ----------
     reg_obj_fn : str
         File storing a list of :class:`~..utils.gfeature.Feautre` objects.
-    sam_fn_list : list of str
-        A list of BAM files.
+    sam_fn : str
+        Input BAM file.
     out_mtx_fns : dict of {str : str}
         Output allele-specific sparse matrix files.
         Keys are alleles and values are sparse matrix files.
@@ -65,23 +70,14 @@ def fc_features(
     """
     info("[Batch-%d] start ..." % batch_idx)
 
-    sam_list = []
-    for fn in sam_fn_list:
-        sam = pysam.AlignmentFile(fn, "r", require_index = True)
-        sam_list.append(sam)
-
+    sam = pysam.AlignmentFile(sam_fn, "r", require_index = True)
     reg_list = load_feature_objects(reg_obj_fn)
-
     alleles = list(out_mtx_fns.keys())
     fp_mtx = {ale: zopen(fn, "wt", ZF_F_GZIP, is_bytes = False) \
                 for ale, fn in out_mtx_fns.items()}
 
 
     # core part.
-    mcnt_snp = SNPMCount(samples, conf)
-    mcnt_ab = ABFeatureMCount(samples, conf)
-    mcnt = FeatureMCount(samples, conf)
-
     m = float(len(reg_list))
     l = 0                    # fraction of processed genes, used for verbose.
     nr_mtx = {ale:0 for ale in alleles}      # number of records.
@@ -90,16 +86,14 @@ def fc_features(
             debug("[Batch-%d] processing feature '%s' ..." % \
                   (batch_idx, reg.name))
 
-        r, cnt = fc_fet1(
-            reg, alleles, sam_list, mcnt, mcnt_snp, mcnt_ab, conf
-        )
+        r, cnt = fc_fet1(reg, sam, samples, alleles, conf)
         if r < 0 or cnt is None:
             error("errcode -9 (%s)." % reg.name)
             raise RuntimeError
 
         sr = {ale:"" for ale in alleles}              # string of one record.
-        for i, smp in enumerate(samples):
-            nu = {ale:cnt[ale][smp] for ale in alleles}     # number of UMIs.
+        for i, cell in enumerate(samples):
+            nu = {ale:cnt[ale][cell] for ale in alleles}     # number of UMIs.
             if np.sum([v for v in nu.values()]) <= 0:
                 continue
             for ale in alleles:
@@ -126,11 +120,10 @@ def fc_features(
     if conf.debug > 0:
         debug("[Batch-%d] clean files ..." % batch_idx)
 
+    sam.close()
     for ale in alleles:
         fp_mtx[ale].close()
-    for sam in sam_list:
-        sam.close()
-    sam_list.clear()
+
     
     # reg objects, each containing post-filtering SNPs.
     save_feature_objects(reg_list, reg_obj_fn)
@@ -139,9 +132,6 @@ def fc_features(
 
 
     del reg_list
-    del mcnt_snp
-    del mcnt_ab
-    del mcnt
     gc.collect()
 
     res = dict(
@@ -164,23 +154,19 @@ def fc_features(
 
 
 
-def fc_fet1(reg, alleles, sam_list, mcnt, mcnt_snp, mcnt_ab, conf):
+def fc_fet1(reg, sam, samples, alleles, conf):
     """Feature counting for one feature.
     
     Parameters
     ----------
     reg : :class:`~..utils.gfeature.Feature`
         The feature to be counted.
+    sam : :class:`pysam.AlignmentFile`
+        File object for input SAM/BAM file.
+    samples: list of str
+        A list of cell barcodes.
     alleles : list of str
         A list of allele names.
-    sam_list : list of :class:`pysam.AlignmentFile`
-        A list of file objects for input SAM/BAM files.
-    mcnt : :class:`.mcount_feature.MCount`
-        Counting object for all alleles in feature level.
-    mcnt_snp : :class:`.mcount_snp.MCount`
-        Counting object in SNP level.
-    mcnt_ab : :class:`.mcount_ab.MCount`
-        Counting object for allele "A" and "B" in feature level.
     conf : :class:`.config.Config`
         Global configuration object.
 
@@ -192,186 +178,132 @@ def fc_fet1(reg, alleles, sam_list, mcnt, mcnt_snp, mcnt_ab, conf):
         The *allele x cell* counts of this feature.
         It is a two-layer dict, with "allele name (str)" and "cell ID (str)"
         as keys, respectively, and "counts (int)" as values.
-        None if error happens.
+        None if error happens or no any UMIs fetched.
     """
-    if fc_ab(reg, sam_list, mcnt_ab, mcnt_snp, conf) < 0:
-        return((-3, None))
-    mcnt.add_feature(reg, mcnt_ab)
+    mcnt = MCount(samples, conf)
+    out_sam_list = {
+        ale: pysam.AlignmentFile(dat.seed_sam_fn, "wb", template = sam) \
+            for ale, dat in reg.allele_data.items()
+    }
+
     
-    samples = mcnt.samples
-    
-    out_sam_list = {ale: pysam.AlignmentFile(dat.seed_sam_fn, "wb",    \
-        template = sam_list[0]) for ale, dat in reg.allele_data.items()}
-
-    ret = smp = umi = ale_idx = None
-    for idx, sam in enumerate(sam_list):
-        itr = sam_fetch(sam, reg.chrom, reg.start, reg.end - 1)
-        if not itr:    
-            continue
-        for read in itr:
-            if check_read(read, reg, conf) < 0:
-                continue
-            if conf.use_barcodes():
-                ret, smp, umi, ale_idx = mcnt.push_read(read)
-            else:
-                smp = samples[idx]
-                ret, smp, umi, ale_idx = mcnt.push_read(read, smp)
-            if ret < 0:
-                return((-5, None))
-            elif ret > 0:    # read filtered.
-                continue
-            if (not smp) or (not umi) or ale_idx is None:
-                continue
-                
-            read.set_tag(conf.hap_idx_tag, ale_idx)
-            
-            # output reads to feature-allele-specific SAM/BAM file.
-            # Note that these reads are superset of the reads used for read
-            # sampling in `rs` module, because after the read iteration loop,
-            # there could be a few UMI filtering steps.
-            ale = idx2hap(ale_idx)
-            if ale not in out_sam_list:
-                continue
-            out_sam = out_sam_list[ale]
-            out_sam.write(read)
-                
-    for sam in out_sam_list.values():
-        sam.close()
-    for ale, dat in reg.allele_data.items():
-        pysam.index(dat.seed_sam_fn)
-
-    if mcnt.stat() < 0:
-        return((-9, None))
-
-
-    ale_cnt = {ale: {smp:0 for smp in samples} for ale in alleles}
-    cumi_fps = {ale: open(dat.seed_cumi_fn, "w")   \
-            for ale, dat in reg.allele_data.items()}
-
-    for smp, scnt in mcnt.cell_cnt.items():
-        for ale in alleles:      #  {"A", "B", "D", "O", "U"}
-            ale_cnt[ale][smp] = sum([   \
-                    scnt.hap_cnt[i] for i in hap2idx(ale)])
-        for ale, fp in cumi_fps.items():
-            umis = set()
-            if ale in conf.cumi_alleles:
-                for i in hap2idx(ale):
-                    umis.update(scnt.umi_cnt[i])
-            else:
-                error("invalid allele '%s'." % ale)
-                raise ValueError
-            for umi in sorted(list(umis)):
-                fp.write("%s\t%s\n" % (smp, umi))
-
-    for fp in cumi_fps.values():
-        fp.close()
-
-    return((0, ale_cnt))
-
-
-
-def fc_ab(reg, sam_list, mcnt, mcnt_snp, conf):
-    """Counting for allele A and B in feature level.
-    
-    This function generates UMI/read counts of allele "A" and "B" in each
-    single cells for one feature.
-    The allele/haplotype state of each UMI/read is inferred by checking the
-    phased SNPs covered by this UMI/read.
-
-    Note that when one UMI/read covers multiple SNPs, it will only be counted
-    once in feature level, to avoid the issue of double counting.
-    
-    Parameters
-    ----------
-    reg : :class:`~..utils.gfeature.Feature`
-        The feature to be counted.
-    sam_list : list of :class:`pysam.AlignmentFile`
-        A list of file objects for input SAM/BAM files.
-    mcnt : :class:`.mcount_ab.MCount`
-        Counting object for allele "A" and "B" in feature level.
-    mcnt_snp : :class:`.mcount_snp.MCount`
-        Counting object in SNP level.
-    conf : :class:`.config.Config`
-        Global configuration object.
-
-    Returns
-    -------
-    int
-        Return code. 0 if success, negative otherwise.
-    """
-    mcnt.add_feature(reg)
-    snp_list = []
+    # add UMIs fetched by SNPs into counting machine.
+    snp_cnt_list = []
     for snp in reg.snp_list:
-        ret = plp_snp(snp, sam_list, mcnt_snp, conf, reg)
-        if ret < 0:
-            error("SNP (%s:%d:%s:%s) pileup failed; errcode %d." % \
-                (snp.chrom, snp.pos, snp.ref, snp.alt, ret))
-            return(-3)
-        elif ret > 0:     # snp filtered.
-            continue
-        else:
-            if mcnt.push_snp(mcnt_snp) < 0:
-                return(-5)
-        snp_list.append(snp)
-    reg.snp_list = snp_list
-    if mcnt.stat() < 0:
-        return(-7)
-    return(0)
-
-
-
-def plp_snp(snp, sam_list, mcnt, conf, reg):
-    """Counting in SNP level.
-    
-    This function generates UMI/read counts of the reference (REF) and 
-    alternative (ALT) alleles in each single cells for this SNP.
-    
-    Parameters
-    ----------
-    snp : :class:`~..utils.gfeature.SNP`
-        The SNP to be counted.
-    sam_list : list of :class:`pysam.AlignmentFile`
-        A list of file objects for input SAM/BAM files.
-    mcnt : :class:`.mcount_snp.MCount`
-        Counting object in SNP level.
-    conf : :class:`.config.Config`
-        Global configuration object.
-    reg : :class:`~..utils.gfeature.Feature`
-        The feature that the `snp` belongs to.
-
-    Returns
-    -------
-    int
-        Return code. 0 if success, negative if error, positive if filtered.
-    """
-    ret = None
-    if mcnt.add_snp(snp) < 0:   # mcnt reset() inside.
-        return(-3)
-    samples = mcnt.samples
-    for idx, sam in enumerate(sam_list):
         itr = sam_fetch(sam, snp.chrom, snp.pos, snp.pos)
         if not itr:    
             continue
+        snp_cnt = SNPCount(snp, mcnt, mcnt.cells, conf)
         for read in itr:
             if check_read(read, reg, conf) < 0:
                 continue
-            if conf.use_barcodes():
-                ret = mcnt.push_read(read)
-            else:
-                smp = samples[idx]
-                ret = mcnt.push_read(read, smp)
-            if ret < 0:
-                return(-5)
-            elif ret > 0:    # read filtered.
-                continue
-    if mcnt.stat() < 0:
-        return(-7)
-    snp_cnt = sum(mcnt.tcount)
-    if snp_cnt < conf.min_count:
-        return(3)
-    ref_cnt = mcnt.tcount[mcnt.base_idx[snp.ref]]
-    alt_cnt = mcnt.tcount[mcnt.base_idx[snp.alt]]
-    minor_cnt = min(ref_cnt, alt_cnt)
-    if minor_cnt < snp_cnt * conf.min_maf:
-        return(5)
-    return(0)
+            ret = snp_cnt.add_read(read)
+            if ret < 0:      # read filtered if ret > 0
+                return(-3, None)
+        snp_cnt_list.append(snp_cnt)
+        
+    
+    # add all UMIs into counting machine.
+    itr = sam_fetch(sam, reg.chrom, reg.start, reg.end - 1)
+    if not itr:    
+        return(0, None)
+    for read in itr:
+        if check_read(read, reg, conf) < 0:
+            continue
+        if conf.use_barcodes():
+            ret, ucnt = mcnt.add_read(read)
+        else:
+            raise ValueError
+        if ret < 0:         # read filtered if ret > 0
+            return(-5, None)
+    
+    
+    # stat SNP and QC.
+    snp_list = []
+    for snp_cnt in snp_cnt_list:
+        qc_fail = False
+        stat_allele = snp_cnt.stat()
+        n_all = sum(stat_allele.values())
+        if n_all < conf.min_count:
+            qc_fail = True
+        n_ref = stat_allele[snp.ref]
+        n_alt = stat_allele[snp.alt]
+        n_minor = min(n_ref, n_alt)
+        if n_minor < n_all * conf.min_maf:
+            qc_fail = True
+        if qc_fail:
+            snp_id = snp_cnt.get_id()
+            mcnt.del_snp(snp_id)
+        else:
+            snp_list.append(snp_cnt.snp)
+    reg.snp_list = snp_list
+        
+            
+    # stat counting machine.
+    stat_hap, stat_umi = mcnt.stat()
+
+    
+    # output allele-specific reads.
+    hap_idx = None
+    itr = sam_fetch(sam, reg.chrom, reg.start, reg.end - 1)
+    if not itr:    
+        return(-7, None)
+    for read in itr:
+        if check_read(read, reg, conf) < 0:
+            continue
+        if conf.use_barcodes():
+            hap_idx = mcnt.get_hap_idx(read)
+        else:
+            raise ValueError
+        if hap_idx is None:
+            continue   
+        read.set_tag(conf.hap_idx_tag, hap_idx)
+            
+        # output reads to feature-allele-specific SAM/BAM file.
+        # Note that these reads are superset of the reads used for read
+        # sampling in `rs` module, because after the read iteration loop,
+        # there could be a few UMI filtering steps.
+        ale = idx2hap(hap_idx)
+        if ale not in out_sam_list:
+            continue
+        out_sam = out_sam_list[ale]
+        out_sam.write(read)
+                
+    for s in out_sam_list.values():
+        s.close()
+    for ale, dat in reg.allele_data.items():
+        pysam.index(dat.seed_sam_fn)
+
+
+    # output allele-specific CUMI list.
+    cumi_fps = {
+        ale: open(dat.seed_cumi_fn, "w")   \
+            for ale, dat in reg.allele_data.items()
+    }
+    for ale, fp in cumi_fps.items():
+        assert ale in conf.cumi_alleles
+        for cell in samples:
+            umis = set()
+            for i in hap2idx(ale):
+                if i not in stat_umi:
+                    continue
+                if cell not in stat_umi[i]:
+                    continue
+                umis.update(stat_umi[i][cell])
+            for umi in sorted(list(umis)):
+                fp.write("%s\t%s\n" % (cell, umi))
+        fp.close()
+        
+        
+    # output allele-specific CUMI counts.
+    ale_cnt = {ale: {cell:0 for cell in samples} for ale in alleles}
+    for ale in alleles:      #  {"A", "B", "D", "O", "U"}
+        for cell in samples:
+            for i in hap2idx(ale):
+                if i not in stat_hap:
+                    continue
+                if cell not in stat_hap[i]:
+                    continue
+                ale_cnt[ale][cell] += stat_hap[i][cell]
+
+    return((0, ale_cnt))

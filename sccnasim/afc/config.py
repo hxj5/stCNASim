@@ -20,10 +20,7 @@ class Config:
 
         # command-line arguments/parameters.
         self.sam_fn = None
-        self.sam_list_fn = None
         self.barcode_fn = None
-        self.sample_ids = None
-        self.sample_id_fn = None
         self.feature_fn = None
         self.snp_fn = None
         self.out_dir = None
@@ -43,7 +40,6 @@ class Config:
         self.multi_mapper_how = self.defaults.MULTI_MAPPER_HOW
         self.xf_tag = self.defaults.XF_TAG
         self.gene_tag = self.defaults.GENE_TAG
-        self.no_orphan_post_qc = self.defaults.NO_ORPHAN
         
         # read filtering.
         self.min_mapq = self.defaults.MIN_MAPQ
@@ -74,6 +70,19 @@ class Config:
         # out_prefix : str
         #   The prefix of the output files.
         self.out_prefix = COMMAND
+        
+        # pe_mode : str
+        #   Mode of pair-end reads.
+        #   One of 
+        #   * 'auto' - auto detect;
+        #   * 'PE' - pair-end reads;
+        #   * 'SE' - single-end reads;
+        self.pe_mode = 'auto'
+        
+        # no_orphan_post_qc : bool
+        #   Whether to filter post-QC orphan reads when determining the 
+        #   haplotype states of the UMIs.
+        self.no_orphan_post_qc = self.defaults.NO_ORPHAN
 
     def show(self, fp = None, prefix = ""):
         if fp is None:
@@ -81,10 +90,7 @@ class Config:
 
         s =  "%s\n" % prefix
         s += "%ssam_file = %s\n" % (prefix, self.sam_fn)
-        s += "%ssam_list_file = %s\n" % (prefix, self.sam_list_fn)
         s += "%sbarcode_file = %s\n" % (prefix, self.barcode_fn)
-        s += "%ssample_ids = %s\n" % (prefix, self.sample_ids)
-        s += "%ssample_id_file = %s\n" % (prefix, self.sample_id_fn)
         s += "%sfeature_file = %s\n" % (prefix, self.feature_fn)
         s += "%ssnp_file = %s\n" % (prefix, self.snp_fn)
         s += "%sout_dir = %s\n" % (prefix, self.out_dir)
@@ -107,7 +113,6 @@ class Config:
         s += "%smulti_mapper_how = %s\n" % (prefix, self.multi_mapper_how)
         s += "%sxf_tag = %s\n" % (prefix, str(self.xf_tag))
         s += "%sgene_tag = %s\n" % (prefix, str(self.gene_tag))
-        s += "%sno_orphan_post_qc = %s\n" % (prefix, self.no_orphan_post_qc)
         s += "%s\n" % prefix
 
         # read filtering.
@@ -129,6 +134,8 @@ class Config:
         s += "%scumi_alleles = %s\n" % (prefix, str(self.cumi_alleles))
         s += "%shap_idx_tag = %s\n" % (prefix, self.hap_idx_tag)
         s += "%sout_prefix = %s\n" % (prefix, self.out_prefix)
+        s += "%spe_mode = %s\n" % (prefix, self.pe_mode)
+        s += "%sno_orphan_post_qc = %s\n" % (prefix, self.no_orphan_post_qc)
         s += "%s\n" % prefix
 
         fp.write(s)

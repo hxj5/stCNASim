@@ -34,7 +34,6 @@ def main_wrapper(
     clone_anno_fn, cna_profile_fn, 
     refseq_fn,
     out_dir,
-    sam_list_fn = None, sample_ids = None, sample_id_fn = None,
     overlap_features_how = "raw",
     size_factor = "libsize",
     marginal = "auto",
@@ -57,10 +56,8 @@ def main_wrapper(
 
     Parameters
     ----------
-    sam_fn : str or None
-        Comma separated indexed BAM file.
-        Note that one and only one of `sam_fn` and `sam_list_fn` should be
-        specified.
+    sam_fn : str
+        Indexed BAM file.
     cell_anno_fn : str
         The cell annotation file. 
         It is a header-free TSV file and its first two columns are:
@@ -110,17 +107,6 @@ def main_wrapper(
         A FASTA file storing reference genome sequence.
     out_dir : str
         The output folder.
-    sam_list_fn : str or None, default None
-        A file listing indexed BAM files, each per line.
-    sample_ids : str or None, default None
-        Comma separated sample IDs.
-        It should be specified for well-based or bulk data.
-        When `barcode_fn` is not specified, the default value will be
-        "SampleX", where "X" is the 0-based index of the BAM file(s).
-        Note that `sample_ids` and `sample_id_fn` should not be specified
-        at the same time.
-    sample_id_fn : str or None, default None
-        A file listing sample IDs, each per line.
     overlap_features_how : str, default "raw"
         How to process overlapping features.
         - "raw": Leave all input gene annotations unchanged.
@@ -243,9 +229,6 @@ def main_wrapper(
     conf.cna_profile_fn = cna_profile_fn
     conf.refseq_fn = refseq_fn
     conf.out_dir = out_dir
-    conf.sam_list_fn = sam_list_fn
-    conf.sample_ids = sample_ids
-    conf.sample_id_fn = sample_id_fn
     
     
     # preprocessing.
@@ -361,9 +344,6 @@ def main_core(conf):
         feature_fn = pp_res["feature_fn_new"],
         phased_snp_fn = pp_res["snp_fn_new"],
         out_dir = os.path.join(conf.out_dir, "%d_afc" % step),
-        sam_list_fn = conf.sam_list_fn,
-        sample_ids = conf.sample_ids, 
-        sample_id_fn = conf.sample_id_fn,
         debug_level = conf.debug_level,
         ncores = conf.ncores,
         cell_tag = conf.cell_tag,
@@ -499,11 +479,6 @@ def main_run(conf):
 def main_init(conf):
     if conf.sam_fn is not None:
         assert_e(conf.sam_fn)
-    if conf.sam_list_fn is not None:
-        assert_e(conf.sam_list_fn)
-    if conf.sample_id_fn is not None:
-        assert_e(conf.sample_id_fn)
-
     assert_e(conf.cell_anno_fn)
     assert_e(conf.feature_fn)
     assert_e(conf.snp_fn)

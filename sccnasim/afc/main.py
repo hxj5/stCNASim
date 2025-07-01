@@ -16,11 +16,11 @@ from .io import load_feature_from_txt,  \
     load_snp_from_vcf, load_snp_from_tsv,  \
     merge_mtx
 from .mfu import mfu_main
+from .sam import detect_pe_mode
 from ..app import APP, VERSION
 from ..utils.gfeature import assign_feature_batch,  \
     load_feature_objects, save_feature_objects
-from ..utils.io import load_bams, load_barcodes, load_samples,  \
-    load_list_from_str
+from ..utils.io import load_bams, load_barcodes, load_samples
 from ..xlib.xbase import assert_e
 from ..xlib.xdata import load_adata, save_h5ad
 from ..xlib.xfile import ZF_F_GZIP, ZF_F_PLAIN
@@ -34,14 +34,12 @@ def afc_wrapper(
     sam_fn, barcode_fn,
     feature_fn, phased_snp_fn, 
     out_dir,
-    sam_list_fn = None,
-    sample_ids = None, sample_id_fn = None,
     debug_level = 0,
     ncores = 1,
     cell_tag = "CB", umi_tag = "UB",
     min_count = 20, min_maf = 0.1,
     strandness = "forward",
-    min_include = 0.9,
+    min_include = 0.5,
     multi_mapper_how = "discard",
     xf_tag = "xf", gene_tag = "GN",
     min_mapq = 20, min_len = 30,
@@ -53,13 +51,10 @@ def afc_wrapper(
 
     Parameters
     ----------
-    sam_fn : str or None
-        Comma separated indexed BAM file.
-        Note that one and only one of `sam_fn` and `sam_list_fn` should be
-        specified.
-    barcode_fn : str or None
-        A plain file listing all effective cell barcode.
-        It should be specified for droplet-based data.
+    sam_fn : str
+        Input indexed BAM file.
+    barcode_fn : str
+        A plain file listing all effective cell barcodes.
     feature_fn : str
         A TSV file listing target features.
         It is header-free and its first 4 columns shoud be:
@@ -82,17 +77,6 @@ def afc_wrapper(
         "FORMAT" field.
     out_dir : str
         Output directory.
-    sam_list_fn : str or None, default None
-        A file listing indexed BAM files, each per line.
-    sample_ids : str or None, default None
-        Comma separated sample IDs.
-        It should be specified for well-based or bulk data.
-        When `barcode_fn` is not specified, the default value will be
-        "SampleX", where "X" is the 0-based index of the BAM file(s).
-        Note that `sample_ids` and `sample_id_fn` should not be specified
-        at the same time.
-    sample_id_fn : str or None, default None
-        A file listing sample IDs, each per line.
     debug_level : {0, 1, 2}
         The debugging level, the larger the number is, more detailed debugging
         information will be outputted.
@@ -113,7 +97,7 @@ def afc_wrapper(
         - "reverse": SE antisense; PE R1 sense and R2 antisense;
             e.g., 10x 5' data.
         - "unstranded": no strand information.
-    min_include : int or float, default 0.9
+    min_include : int or float, default 0.5
         Minimum length of included part within specific feature.
         If float between (0, 1), it is the minimum fraction of included length.
     multi_mapper_how : {"discard", "duplicate"}
@@ -153,12 +137,9 @@ def afc_wrapper(
     #init_logging(stream = sys.stdout)
 
     conf.sam_fn = sam_fn
-    conf.sam_list_fn = sam_list_fn
     conf.barcode_fn = barcode_fn
     conf.feature_fn = feature_fn
     conf.snp_fn = phased_snp_fn
-    conf.sample_ids = sample_ids
-    conf.sample_id_fn = sample_id_fn
     conf.out_dir = out_dir
     conf.debug = debug_level
 
@@ -174,7 +155,6 @@ def afc_wrapper(
     conf.multi_mapper_how = multi_mapper_how
     conf.xf_tag = xf_tag
     conf.gene_tag = gene_tag
-    conf.no_orphan_post_qc = no_orphan
     
     conf.min_mapq = min_mapq
     conf.min_len = min_len
@@ -183,6 +163,7 @@ def afc_wrapper(
     conf.no_orphan = no_orphan
     
     conf.out_feature_dirs = out_feature_dirs
+    conf.no_orphan_post_qc = no_orphan
 
     ret, res = afc_run(conf)
     return((ret, res))
@@ -195,7 +176,6 @@ def afc_core(conf):
     
     reg_list = data["reg_list"]
     snp_set = data["snp_set"]
-    sam_fn_list = data["sam_fn_list"]
     samples = data["samples"]
     
     n_samples = len(samples)
@@ -291,7 +271,7 @@ def afc_core(conf):
                     (ale, idx)) for ale in conf.alleles}
         args = dict(
             reg_obj_fn = reg_fn_list[idx],
-            sam_fn_list = sam_fn_list,
+            sam_fn = conf.sam_fn,
             out_mtx_fns = mtx_fns,
             samples = samples,
             batch_idx = idx,
@@ -307,11 +287,10 @@ def afc_core(conf):
     snp_set.destroy()
     del reg_list
     del snp_set
-    del sam_fn_list
     del samples
     del data
     gc.collect()
-    reg_list = snp_set = sam_fn_list = samples = data = None
+    reg_list = snp_set = samples = data = None
 
 
     # allele-specific counting with multi-processing.
@@ -490,41 +469,13 @@ def afc_pp(conf):
     info("configuration:")
     conf.show(fp = sys.stdout, prefix = "\t")
     
+    assert_e(conf.sam_fn)
     
-    sam_fn_list = None
-    if conf.sam_fn:
-        assert conf.sam_list_fn is None
-        sam_fn_list = load_list_from_str(conf.sam_fn, sep = ",")
-    else:
-        assert conf.sam_list_fn is not None
-        sam_fn_list = load_bams(conf.sam_list_fn)
-    
-    for fn in sam_fn_list:
-        assert_e(fn)
-    info("load %d BAM file(s)." % len(sam_fn_list))
-
-    
-    barcodes = sample_ids = None
-    if conf.barcode_fn:
-        assert conf.sample_ids is None
-        assert conf.sample_id_fn is None
-        assert_e(conf.barcode_fn)
+    assert_e(conf.barcode_fn)
+    barcodes = sorted(load_barcodes(conf.barcode_fn))
+    assert len(set(barcodes)) == len(barcodes)
         
-        barcodes = sorted(load_barcodes(conf.barcode_fn))
-        assert len(set(barcodes)) == len(barcodes)
-    else:
-        if conf.sample_ids and conf.sample_id_fn:
-            raise ValueError
-        elif conf.sample_ids:
-            sample_ids = load_list_from_str(conf.sample_ids, sep = ",")
-        elif conf.sample_id_fn:
-            sample_ids = load_samples(conf.sample_id_fn)
-        else:
-            warn("use default sample IDs ...")
-            sample_ids = ["Sample%d" % i for i in range(len(sam_fn_list))]
-        assert len(sample_ids) == len(sam_fn_list)
-        
-    samples = barcodes if barcodes else sample_ids
+    samples = barcodes
     info("load %d cells." % len(samples))
 
     
@@ -598,24 +549,18 @@ def afc_pp(conf):
             assert_e(fet_dir)
             
             
+    conf.pe_mode = detect_pe_mode(conf.sam_fn)
+            
+            
     info("updated configuration:")
     conf.show(fp = sys.stdout, prefix = "\t")
 
 
     data = dict(
-        # sam_fn_list : list of str
-        #   A list of input SAM/BAM files.
-        sam_fn_list = sam_fn_list,
-
         # barcodes : list of str or None
         #   A list of cell barcodes.
         #   None if sample IDs are used.
         barcodes = barcodes,
-
-        # sample_ids : list of str or None
-        #   A list of sample IDs.
-        #   None if cell barcodes are used.
-        sample_ids = sample_ids,
 
         # samples : list of str
         #   A list of cell barcodes (droplet-based data) or sample IDs (

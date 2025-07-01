@@ -80,7 +80,7 @@ def mfu_main(
     """
     # check args.
     reg_list = load_feature_objects(fet_obj_fn)
-    samples = load_samples(sample_fn)         # ndarray
+    cells = load_samples(sample_fn)         # ndarray
     features = load_features(feature_fn)      # DataFrame
     features = features["feature"].to_numpy()
     
@@ -129,7 +129,7 @@ def mfu_main(
     mfu_cs_main(
         in_fn = cumi_merge_fn,
         out_fn = cumi_cs_fn,
-        samples = samples,
+        cells = cells,
         multi_mapper_how = multi_mapper_how,
         tmp_dir = res_dir,
         ncores = ncores
@@ -176,7 +176,7 @@ def mfu_main(
             out_files = out_fns,
             matrix_fn = mtx_fn,
             allele = ale,
-            samples = samples,
+            cells = cells,
             features = features,
             tmp_dir = os.path.join(res_dir, ale),
             ncores = ncores
@@ -203,7 +203,7 @@ def mfu_main(
     
     res = dict(
         # out_sample_fn : str
-        #   File storing samples. It is in `count_dir`.
+        #   File storing cells. It is in `count_dir`.
         out_sample_fn = out_sample_fn,
         
         # out_feature_fn : str
@@ -226,7 +226,7 @@ def mfu_main(
 def mfu_cs_main(
     in_fn,
     out_fn,
-    samples,
+    cells,
     multi_mapper_how,
     tmp_dir,
     ncores
@@ -239,7 +239,7 @@ def mfu_cs_main(
         Path to the input 4-column CUMI file.
     out_fn : str
         Path to the output 4-column CUMI file.
-    samples : list of str
+    cells : list of str
         A list of cell barcodes.
         Its order should match that in count matrices.
     multi_mapper_how : {"discard", "duplicate"}
@@ -262,7 +262,7 @@ def mfu_cs_main(
     __mfu_cs_batch(
         in_fn = in_fn,
         out_fn = out_fn,
-        samples = samples,
+        cells = cells,
         multi_mapper_how = multi_mapper_how,
         tmp_dir = tmp_dir,
         ncores = ncores,
@@ -275,7 +275,7 @@ def mfu_cs_main(
 def __mfu_cs_batch(
     in_fn,
     out_fn,
-    samples,
+    cells,
     multi_mapper_how,
     tmp_dir,
     ncores,
@@ -294,7 +294,7 @@ def __mfu_cs_batch(
         Path to the input 4-column CUMI file.
     out_fn : str
         Path to the output 4-column CUMI file.
-    samples : list of str
+    cells : list of str
         A list of cell barcodes.
     multi_mapper_how : {"discard", "duplicate"}
         How to process the multi-feature UMIs (reads).
@@ -305,7 +305,7 @@ def __mfu_cs_batch(
     ncores : int, default 1
         Number of cores.
     max_per_batch : int
-        Maximum number of `samples` allowed to be processed simultaneously.
+        Maximum number of `cells` allowed to be processed simultaneously.
     depth : int
         Depth index, 0-based.
 
@@ -313,7 +313,7 @@ def __mfu_cs_batch(
     -------
     Void.
     """
-    n = len(samples)   
+    n = len(cells)   
     
     if n <= max_per_batch:
         mfu_cs(
@@ -344,8 +344,8 @@ def __mfu_cs_batch(
         fp = zopen(bd_in_fn, "w", ZF_F_PLAIN)
         fp_list.append(fp)
         for i in range(b, e):
-            assert samples[i] not in idx_map
-            idx_map[samples[i]] = fp
+            assert cells[i] not in idx_map
+            idx_map[cells[i]] = fp
         batches.append((b, e, bd_in_fn, bd_out_fn))
     
     in_fp = open(in_fn, "r")
@@ -368,7 +368,7 @@ def __mfu_cs_batch(
             __mfu_cs_batch(
                 in_fn = bd_in_fn,
                 out_fn = bd_out_fn,
-                samples = samples[b:e],
+                cells = cells[b:e],
                 multi_mapper_how = multi_mapper_how,
                 tmp_dir = res_dir,
                 ncores = 1,
@@ -386,7 +386,7 @@ def __mfu_cs_batch(
                 kwds = dict(
                     in_fn = bd_in_fn,
                     out_fn = bd_out_fn,
-                    samples = samples[b:e],
+                    cells = cells[b:e],
                     multi_mapper_how = multi_mapper_how,
                     tmp_dir = res_dir,
                     ncores = 1,
@@ -492,7 +492,7 @@ def mfu_fs_main(
     out_files,
     matrix_fn,
     allele,
-    samples,
+    cells,
     features,
     tmp_dir,
     ncores
@@ -510,7 +510,7 @@ def mfu_fs_main(
         Path to the output sparse matrix file.
     allele : str
         Allele.
-    samples : list of str
+    cells : list of str
         All available cell barcodes.
     features : list of str
         All available feature names.
@@ -534,7 +534,7 @@ def mfu_fs_main(
         out_files = out_files,
         matrix_fn = tmp_mtx_fn,
         allele = allele,
-        samples = samples,
+        cells = cells,
         features = features,
         tmp_dir = tmp_dir,
         ncores = ncores,
@@ -547,7 +547,7 @@ def mfu_fs_main(
     tmp_header_fn = os.path.join(tmp_dir, "tmp.matrix.header.tsv")
     s  = "%%MatrixMarket matrix coordinate integer general\n"
     s += "%%\n"
-    s += "%d %d %d\n" % (len(features), len(samples), n_rec_mtx)
+    s += "%d %d %d\n" % (len(features), len(cells), n_rec_mtx)
     with open(tmp_header_fn, "w") as fp:
         fp.write(s)
         
@@ -570,7 +570,7 @@ def __mfu_fs_batch(
     out_files,
     matrix_fn,
     allele,
-    samples,
+    cells,
     features,
     tmp_dir,
     ncores,
@@ -590,7 +590,7 @@ def __mfu_fs_batch(
     out_files
     matrix_fn
     allele
-    samples
+    cells
     features
     tmp_dir
     ncores
@@ -626,7 +626,7 @@ def __mfu_fs_batch(
             matrix_sep = matrix_sep,
             b = b0,
             e = e0,
-            samples = samples,
+            cells = cells,
             features = features
         )
         return(n_rec_mtx)
@@ -684,7 +684,7 @@ def __mfu_fs_batch(
                 out_files = out_files[(b-b0):(e+1-b0)],
                 matrix_fn = mtx_fn,
                 allele = allele,
-                samples = samples,
+                cells = cells,
                 features = features,
                 tmp_dir = res_dir,
                 ncores = 1,
@@ -708,7 +708,7 @@ def __mfu_fs_batch(
                     out_files = out_files[(b-b0):(e+1-b0)],
                     matrix_fn = mtx_fn,
                     allele = allele,
-                    samples = samples,
+                    cells = cells,
                     features = features,
                     tmp_dir = res_dir,
                     ncores = 1,
@@ -752,7 +752,7 @@ def mfu_fs(
     matrix_sep,
     b,
     e,
-    samples,
+    cells,
     features
 ):
     """Extract feature-specific CUMIs from combined file and do counting.
@@ -774,7 +774,7 @@ def mfu_fs(
     e : int
         The transcriptomics-scale index of the last feature in this batch.
         0-based, inclusive.
-    samples : list of str
+    cells : list of str
         All available cell barcodes.
     features : list of str
         All available feature names.
@@ -818,7 +818,7 @@ def mfu_fs(
     
     
     # count CUMIs.
-    df["cell_idx"] = df["cell"].map({c:i+1 for i, c in enumerate(samples)})
+    df["cell_idx"] = df["cell"].map({c:i+1 for i, c in enumerate(cells)})
     df["feature_idx"] = df["feature"].map({f:i+1 for i, f in enumerate(features)})
     stat = df[["feature_idx", "cell_idx", "umi"]].groupby(
         ["feature_idx", "cell_idx"], as_index = False).count()
