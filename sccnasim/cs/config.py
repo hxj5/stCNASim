@@ -26,6 +26,7 @@ class Config:
         self.libsize_ratio = 1.0
         self.loss_allele_freq = 0.01
         self.cna_mode = "hap-aware"
+        self.barcode_whitelist_fn = None
         self.ncores = 1
         self.verbose = False
 
@@ -96,6 +97,7 @@ class Config:
         s += "%slibsize_ratio = %f\n" % (prefix, self.libsize_ratio)
         s += "%sloss_allele_freq = %f\n" % (prefix, self.loss_allele_freq)
         s += "%scna_mode = %s\n" % (prefix, self.cna_mode)
+        s += "%sbarcode_whitelist_fn = %s\n" % (prefix, self.barcode_whitelist_fn)
         s += "%sncores = %s\n" % (prefix, self.ncores)
         s += "%sverbose = %s\n" % (prefix, self.verbose)
 

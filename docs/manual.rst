@@ -65,6 +65,7 @@ Full Parameters
         kwargs_fit_rd = None,
         chroms = "human_autosome",
         cell_tag = "CB", umi_tag = "UB", umi_len = 10,
+        barcode_whitelist_fn = None,
         ncores = 1, seed = 123, verbose = False,
         min_count = 1, min_maf = 0,
         strandness = "forward", min_include = 0.5, multi_mapper_how = "discard",
@@ -234,6 +235,10 @@ umi_tag : str or None, default "UB"
 
 umi_len : int, default 10
     Length of output UMI barcode.
+    
+barcode_whitelist_fn : str or None, default None
+    File containing whitelist cell barcodes to be sampled for simulated data.
+    If None, use randomly generated cell barcodes.
 
 ncores : int, default 1
     Number of cores.

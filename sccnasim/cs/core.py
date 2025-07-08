@@ -62,6 +62,13 @@ def cs_init(conf):
 
     os.makedirs(conf.out_dir, exist_ok = True)
 
+    if conf.barcode_whitelist_fn is not None:
+        if conf.barcode_whitelist_fn.lower() == "none":
+            conf.barcode_whitelist_fn = None
+        else:
+            assert os.path.exists(conf.barcode_whitelist_fn)
+
+
     if conf.size_factor is not None:
         assert conf.size_factor in ("libsize", )
     

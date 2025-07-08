@@ -40,6 +40,7 @@ class Config:
         self.cell_tag = self.defaults.CELL_TAG
         self.umi_tag = self.defaults.UMI_TAG
         self.umi_len = 10
+        self.barcode_whitelist_fn = None
         self.ncores = self.defaults.NCORES
         self.seed = 123
         self.verbose = False
@@ -96,6 +97,7 @@ class Config:
         s += "%scell_tag = %s\n" % (prefix, self.cell_tag)
         s += "%sumi_tag = %s\n" % (prefix, self.umi_tag)
         s += "%sumi_len = %d\n" % (prefix, self.umi_len)
+        s += "%sbarcode_whitelist_fn = %s\n" % (prefix, self.barcode_whitelist_fn)
         s += "%snumber_of_cores = %d\n" % (prefix, self.ncores)
         s += "%sseed = %s\n" % (prefix, str(self.seed))
         s += "%sverbose = %s\n" % (prefix, self.verbose)

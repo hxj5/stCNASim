@@ -6,6 +6,7 @@ import gc
 import numpy as np
 import os
 import pandas as pd
+import random
 import sys
 import time
 import warnings
@@ -228,12 +229,20 @@ def cs_core(conf):
         
     info("generate random cell barcodes for simulated adata ...")
     
-    adata_simu.obs["cell"] = rand_cell_barcodes(
-        m = 16,
-        n = adata_simu.shape[0],
-        suffix = "-1",
-        sort = True
-    )
+    if conf.barcode_whitelist_fn is None:
+        adata_simu.obs["cell"] = rand_cell_barcodes(
+            m = 16,
+            n = adata_simu.shape[0],
+            suffix = "-1",
+            sort = True
+        )
+    else:
+        adata_simu.obs["cell"] = sample_barcodes(
+            fn = conf.barcode_whitelist_fn,
+            n = adata_simu.shape[0],
+            suffix = "-1",
+            sort = True
+        )
     
     
     info("update .var of simulated adata ...")
@@ -309,6 +318,7 @@ def cs_wrapper(
     libsize_ratio = 1.0,
     loss_allele_freq = 0.01,
     cna_mode = "hap-aware",
+    barcode_whitelist_fn = None,
     ncores = 1, verbose = False,
     kwargs_fit_sf = None, kwargs_fit_rd = None
 ):
@@ -369,6 +379,10 @@ def cs_wrapper(
         The mode of CNA profiles.
         - hap-aware: haplotype/allele aware.
         - hap-unknown: haplotype/allele unknown.
+    barcode_whitelist_fn : str or None, default None
+        File containing whitelist cell barcodes to be sampled for simulated
+        data.
+        If None, use randomly generated cell barcodes.
     ncores : int, default 1
         The number of cores/sub-processes.
     verbose : bool, default False
@@ -413,11 +427,45 @@ def cs_wrapper(
     conf.libsize_ratio = libsize_ratio
     conf.loss_allele_freq = loss_allele_freq
     conf.cna_mode = cna_mode
+    conf.barcode_whitelist_fn = barcode_whitelist_fn
     conf.ncores = ncores
     conf.verbose = verbose
 
     conf.kwargs_fit_sf = {} if kwargs_fit_sf is None else kwargs_fit_sf
     conf.kwargs_fit_rd = {} if kwargs_fit_rd is None else kwargs_fit_rd
-    
+
     ret, res = cs_run(conf)
     return((ret, res))
+
+
+
+def sample_barcodes(fn, n, suffix = "-1", sort = True):
+    """Sample barcodes from file.
+    
+    Parameters
+    ----------
+    fn : str
+        File containing cell barcodes to be sampled.
+    n : int
+        Number of barcodes to generate.
+    suffix : str, default "-1"
+        Suffix appended to the barcodes.
+    sort : bool, default True
+        Whether to sort the generated barcodes.
+    
+    Returns
+    -------
+    numpy.ndarray
+        Sampled barcodes.
+    """
+    seed = np.loadtxt(fn, dtype = str)
+    assert seed.shape[0] >= n
+        
+    # Note, standard random.sample() is much more efficient than
+    # numpy.random.choice() when k << sample-space-size.
+    x = np.array(random.sample(seed.tolist(), k = n))
+    if sort:
+        x = np.sort(x)
+    if suffix:
+        x = np.array([i + suffix for i in x])
+    return(x)

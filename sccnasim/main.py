@@ -43,6 +43,7 @@ def main_wrapper(
     kwargs_fit_rd = None,
     chroms = "human_autosome",
     cell_tag = "CB", umi_tag = "UB", umi_len = 10,
+    barcode_whitelist_fn = None,
     ncores = 1, seed = 123, verbose = False,
     min_count = 1, min_maf = 0,
     strandness = "forward", min_include = 0.5, multi_mapper_how = "discard",
@@ -166,6 +167,10 @@ def main_wrapper(
         Tag for UMI, set to None when reads only.
     umi_len : int, default 10
         Length of output UMI barcode.
+    barcode_whitelist_fn : str or None, default None
+        File containing whitelist cell barcodes to be sampled for simulated
+        data.
+        If None, use randomly generated cell barcodes.
     ncores : int, default 1
         Number of cores.
     seed : int or None, default 123
@@ -258,6 +263,7 @@ def main_wrapper(
     conf.cell_tag = cell_tag
     conf.umi_tag = umi_tag
     conf.umi_len = umi_len
+    conf.barcode_whitelist_fn = barcode_whitelist_fn
     conf.ncores = ncores
     conf.seed = seed
     conf.verbose = verbose
@@ -391,6 +397,7 @@ def main_core(conf):
         libsize_ratio = conf.libsize_ratio,
         loss_allele_freq = conf.loss_allele_freq,
         cna_mode = "hap-aware",
+        barcode_whitelist_fn = conf.barcode_whitelist_fn,
         ncores = conf.ncores,
         verbose = conf.verbose,
         kwargs_fit_sf = conf.kwargs_fit_sf,
@@ -490,6 +497,12 @@ def main_init(conf):
     
     assert conf.multi_mapper_how in ("discard", "duplicate")
 
+    if conf.barcode_whitelist_fn is not None:
+        if conf.barcode_whitelist_fn.lower() == "none":
+            conf.barcode_whitelist_fn = None
+        else:
+            assert assert_e(conf.barcode_whitelist_fn)
+    
     return(0)
 
 
