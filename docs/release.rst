@@ -3,6 +3,57 @@
    History
    =======
    
+   
+Release v0.6.0 (09/07/2025)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This version mainly restructure the ``mcount`` object in ``afc`` module.
+Specifically, it stores intermediate read information in a hierarchical
+structure, from sread (single read), gread (group of reads, compatible with
+both SE and PE reads), to ucnt (all greads of one UMI).
+The haplotype information is firstly inferred in sread level, based on the
+phased SNPs covered by the sread, and then passed to higher levels.
+
+The ``afc`` workflow for one feature is:
+
+* fetch reads for every phased SNPs covered by this feature, and store the
+  SNP info into the sread objects.
+* iterate all reads of this feature and assign the reads into sread, gread,
+  and ucnt objects.
+* reads QC, e.g., removing orphan reads if ``no_orphan_post_qc`` is True.
+* infer UMI-level allele (base) for every SNP of this feature, and do SNP QC.
+  If QC failed, then remove the SNP from sread, gread, and ucnt objects.
+* infer haplotype info of sread, gread, and ucnt objects based on the post-QC
+  phased SNPs.
+
+Compared to previous versions, this new version:
+
+1. when determing the UMI-level allele (base) for one SNP, it checks whether
+   the the allele (base) is identical in every covered gread (UMI collapsing).
+
+2. it explicitly checks whether the haplotype information is homogeneous 
+   within a group in various levels, i.e.,
+
+* if multiple SNPs are located in one sread, whether these SNPs give same
+  haplotype information for this read.
+* when gread contains multiple sreads (e.g., for PE reads), whether these
+  sreads have identical haolotype info.
+* when UMI contains multiple greads, whether these greads have identical 
+  haolotype info.
+  
+Previously, homogeneity of haplotype info is only checked in UMI level, by
+checking the phased SNPs covered by this UMI.
+
+
+Others:
+
+* afc: add option ``no_orphan_post_qc`` to control whether to remove the
+  orphan read if its mate read is missing or filtered.
+* cs: add option ``barcode_whitelist_fn`` to enable inputting candidate 
+  cell barcodes for simulated data.
+* change default ``min_include`` from 0.9 to 0.5.
+* rename ``cn_fold`` to ``cn_ratio``.
+   
+
 
 Release v0.5.3 (16/06/2025)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
