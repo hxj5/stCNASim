@@ -17,11 +17,6 @@
     - Other strategies can be used to process the above example 70%-30% UMI, 
       e.g., assign the UMI to the gene with more supporting reads and discard 
       the non-supporting reads, instead of using a hard cutoff of fraction.
-      
-- Implement `no_orphan_post_qc` in `afc` module.
-  Within pair-end reads (i.e., two PE reads with the same QNAME), if one read
-  is filtered due to failure in various QC or gene assignment steps, then 
-  `no_orphan_post_qc` controls whether the other read will be filtered.
 
 
 

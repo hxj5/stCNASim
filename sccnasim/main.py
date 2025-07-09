@@ -501,7 +501,7 @@ def main_init(conf):
         if conf.barcode_whitelist_fn.lower() == "none":
             conf.barcode_whitelist_fn = None
         else:
-            assert assert_e(conf.barcode_whitelist_fn)
+            assert_e(conf.barcode_whitelist_fn)
     
     return(0)
 
