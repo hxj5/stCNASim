@@ -55,7 +55,6 @@ Full Parameters
         clone_anno_fn, cna_profile_fn, 
         refseq_fn,
         out_dir,
-        sam_list_fn = None, sample_ids = None, sample_id_fn = None,
         overlap_features_how = "raw",
         size_factor = "libsize",
         marginal = "auto",
@@ -146,20 +145,6 @@ refseq_fn : str
 out_dir : str
     The output folder.
 
-sam_list_fn : str or None, default None
-    A file listing indexed BAM files, each per line.
-
-sample_ids : str or None, default None
-    Comma separated sample IDs.
-    It should be specified for well-based or bulk data.
-    When `barcode_fn` is not specified, the default value will be
-    "SampleX", where "X" is the 0-based index of the BAM file(s).
-    Note that `sample_ids` and `sample_id_fn` should not be specified
-    at the same time.
-
-sample_id_fn : str or None, default None
-    A file listing sample IDs, each per line.
-
 overlap_features_how : str, default "raw"
     How to process overlapping features.
     
@@ -246,6 +231,8 @@ ncores : int, default 1
 seed : int or None, default 123
     Seed for random numbers.
     None means not using a fixed seed.
+    Note that it does not guarantee identical simulated data, even with fixed
+    seed.
 
 verbose : bool, default False
     Whether to show detailed logging information.

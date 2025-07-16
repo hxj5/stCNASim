@@ -176,6 +176,8 @@ def main_wrapper(
     seed : int or None, default 123
         Seed for random numbers.
         None means not using a fixed seed.
+        Note that it does not guarantee identical simulated data, even with
+        fixed seed.
     verbose : bool, default False
         Whether to show detailed logging information.
     min_count : int, default 1
