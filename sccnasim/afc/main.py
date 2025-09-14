@@ -203,7 +203,7 @@ def afc_core(conf):
     for reg in reg_list:
         snp_list = snp_set.fetch(reg.chrom, reg.start, reg.end)
         if snp_list and len(snp_list) > 0:
-            reg.snp_list = snp_list
+            reg.snp_list = sorted(snp_list, key = lambda s: s.pos)
             n += 1
         else:
             reg.snp_list = []
