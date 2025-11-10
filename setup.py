@@ -59,11 +59,15 @@ setup(
     license='Apache-2.0',
 
     # What does your project relate to?
-    keywords=['CNA', 'Simulator', "single-cell", "spatial transcriptomics"],
+    keywords = ['CNA', 'Simulator', "single-cell", "spatial transcriptomics"],
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
     packages = find_packages(),
+
+    # or use
+    #packages = ["sccnasim"],
+    #package_dir = {"": "."},
 
     #entry_points={
     #    'console_scripts': [
