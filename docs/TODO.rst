@@ -11,6 +11,7 @@ Read Assignment
   It could be useful to help address the issue of multi-gene UMIs, 
   considering one UMI that 70% of its reads mapped to one gene, and the rest 
   30% reads mapped on a different gene.
+  
   * add option ``--minRAF`` (minimum read assignment fraction)?
   * Other strategies can be used to process the above example 70%-30% UMI, 
     e.g., assign the UMI to the gene with more supporting reads and discard 
